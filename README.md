@@ -1,53 +1,53 @@
-# DeepSeek V4 Flash EXL3 on Dell Pro Max with GB10 单机 —— 384K 单座深工位形态
+# DeepSeek V4 Flash EXL3 on a single Dell Pro Max with GB10 — the 384K single-seat deep workstation
 
-> 与"多座并发"相反的另一种形态:exllamav3(EXL3)量化,单机单座,384K 超长上下文,46.3 tok/s。
-> 适合"一个人/一个 agent 独占、吃超长上下文深度工作"的场景——我们叫它**深工位**。
+> The opposite of the "multi-seat concurrent" setup: exllamav3 (EXL3) quantization, one machine, one seat, 384K ultra-long context, 46.3 tok/s.
+> Built for "one person / one agent with exclusive access, doing deep work on ultra-long context" — we call it the **deep workstation**.
 
-## 硬件与版本
+## Hardware and versions
 
-| 项 | 规格/版本 |
+| Item | Spec / version |
 |---|---|
-| 机器 | Dell Pro Max with GB10 ×1(sm_121/aarch64) |
-| 引擎 | [exllamav3](https://github.com/turboderp-org/exllamav3)(EXL3 格式;aarch64+sm_121 可用,从源码构建——按官方构建文档,关键是 `TORCH_CUDA_ARCH_LIST` 含 `12.1a`,见避坑 #2) |
-| 权重 | DeepSeek V4 Flash,EXL3 3.0bpw 量化 |
-| 形态 | **单座**(不做并发),max ctx 384K |
+| Machine | Dell Pro Max with GB10 ×1 (sm_121/aarch64) |
+| Engine | [exllamav3](https://github.com/turboderp-org/exllamav3) (EXL3 format; works on aarch64+sm_121, build from source — follow the official build docs, the key is `TORCH_CUDA_ARCH_LIST` including `12.1a`, see pitfall #2) |
+| Weights | DeepSeek V4 Flash, EXL3 3.0bpw quantization |
+| Setup | **Single-seat** (no concurrency), max ctx 384K |
 
-## 结果速览(实测)
+## Results at a glance (measured)
 
-| 指标 | 数值 |
+| Metric | Value |
 |---|---|
-| 单流 decode | 46.3 tok/s(中长 prompt 单流稳态,greedy/低温采样) |
-| 上下文 | 384K 配置实跑;192K 深度任务下 needle 检索命中(方法同本系列 Flash-Next 篇的阶梯测法) |
-| 定位 | 深工位:一个重度任务独占,换取超长上下文+稳定速度 |
+| Single-stream decode | 46.3 tok/s (steady-state single stream on medium-to-long prompts, greedy/low-temperature sampling) |
+| Context | 384K configured and actually run; needle retrieval hits at 192K on deep tasks (same staircase methodology as the Flash-Next chapter in this series) |
+| Positioning | Deep workstation: one heavy task with exclusive access, trading concurrency for ultra-long context plus stable speed |
 
-## 一键部署
+## One-command deploy
 
-`scripts/deploy.sh [--port N] [--ctx N]`——含 exllamav3 源码构建(arch 显式,`EXL3_COMMIT` 可 pin)→幂等启动→真实推理断言。
+`scripts/deploy.sh [--port N] [--ctx N]` — includes the exllamav3 source build (arch set explicitly, `EXL3_COMMIT` pinnable) → idempotent startup → a real inference assertion.
 
-## 关键配置与一个烧穿两次才学会的参数
+## Key config, and one parameter we burned through twice before learning it
 
 ```
-maxTokens(单次生成上限)= 65536
+maxTokens (per-generation cap) = 65536
 ```
 
-**为什么这么大**:这个权重开思考时,重型任务(长代码审查/多步推理类)的思考流实测可达 **3 万+ token**(此处 maxTokens 指服务端单次生成上限)。我们先后把 maxTokens 设成 8192 和 32768,**两次都被思考烧穿**(思考吃满上限,正文没出来就截断)。65536 才稳。
-通用教训:**带思考模型的生成上限要按"思考峰值+正文"预算,不是按正文预算**;思考峰值只能实测,拿你最重的真实任务喂一次看 reasoning token 数。
+**Why so large**: with thinking enabled, this model's reasoning stream on heavy tasks (long code reviews, multi-step reasoning) measured **30k+ tokens** (maxTokens here is the server-side per-generation cap). We set maxTokens to 8192 and then 32768 — **thinking burned through the cap both times** (reasoning ate the entire budget and the answer got truncated before it started). 65536 is what finally held.
+General lesson: **budget a thinking model's generation cap as "peak reasoning + answer", not just the answer**. Peak reasoning can only be measured — feed it your heaviest real task once and count the reasoning tokens.
 
-## EXL3 路线的定位(vs vLLM/llama.cpp)
+## Where EXL3 fits (vs vLLM/llama.cpp)
 
-- **EXL3 强项**:同 bpw 下量化质量口碑好于传统 4bit 路线(社区共识,建议按你的任务自测),单流速度稳,超长 ctx 内存占用可控(3.0bpw 权重显著小于 4bit)。
-- **弱项**:生态小(工具链/教程少),并发/服务化能力不如 vLLM,aarch64 上要自己构建。
-- **优先适合**:单座+超长上下文是硬需求、且能接受从源码构建的场景。多座并发需求请看本系列 DSV4F 双机篇。
+- **EXL3 strengths**: at the same bpw, its quantization quality has a better reputation than traditional 4bit routes (community consensus — verify on your own tasks), stable single-stream speed, controllable memory at ultra-long ctx (3.0bpw weights are significantly smaller than 4bit).
+- **Weaknesses**: small ecosystem (few tools and tutorials), concurrency/serving capability behind vLLM, and on aarch64 you build it yourself.
+- **Best fit**: single-seat plus ultra-long context as hard requirements, and you can live with building from source. For multi-seat concurrency, see the DSV4F dual-machine chapter in this series.
 
-## 形态定位
+## Positioning
 
-单座深工位与并发服务形态是**互补**而非竞争:并发形态管日常短任务,深工位管"塞进 200K 代码库慢慢想"的活。多形态共存的通用建议:每个形态独立端口+明确语义,调用方按端口选;切换形态时保留各自权重与配置(存储便宜,重建昂贵)。
+The single-seat deep workstation and the concurrent serving setup are **complementary**, not competing: the concurrent setup handles everyday short tasks, the deep workstation handles "stuff a 200K codebase in and think slowly" work. General advice for running multiple setups side by side: give each its own port with clear semantics and let callers pick by port; when switching setups, keep each one's weights and config (storage is cheap, rebuilding is expensive).
 
-## 避坑
+## Pitfalls
 
-1. **maxTokens 烧穿**(上文,烧穿两次的教训)。
-2. aarch64 构建 exllamav3:构建前 `export TORCH_CUDA_ARCH_LIST="12.1a"`——构建期缺这个 arch,错误会拖到运行时才爆。
-3. 单座语义要在调用侧强制:EXL3 服务端不会替你排队治理,并发打进来会互相拖慢——前面放个单座队列或信号量。
+1. **maxTokens burned through** (above — the lesson that cost us two burn-throughs).
+2. Building exllamav3 on aarch64: `export TORCH_CUDA_ARCH_LIST="12.1a"` before the build — miss this arch at build time and the error only surfaces at runtime.
+3. Enforce single-seat semantics on the caller side: the EXL3 server won't queue or govern for you, and concurrent requests will drag each other down — put a single-seat queue or semaphore in front.
 
 ---
-*RyanAI Lab · 数字来自我们的常驻环境实测,更新于 2026-09。欢迎 issue 反馈。*
+*RyanAI Lab · All numbers measured on our resident environment. Updated 2026-09. Issues welcome.*
