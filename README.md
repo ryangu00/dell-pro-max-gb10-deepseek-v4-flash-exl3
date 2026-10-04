@@ -45,7 +45,7 @@ All rows below use thinking off and a single stream. These are different probes,
 | 2026-09-25 | English prose; second node, streamed 320-token completion | 20.0 tok/s | O, one probe |
 | 2026-09-25 | Chinese prose; second node, streamed 320-token completion | 18.8 tok/s | O, one probe |
 
-**O, 2026-09-25:** DSpark draft-token acceptance across those probes was 1,650 of 6,670 (24.7%), read from the serve log. Low prose acceptance accounts for prose being about half the structured-output speed, but the exact counting definition was not re-verified. The 46.3 tok/s structured result was not re-measured on the second node. For the already-published 2026-09-16/17 comparison using the same recipe and a 400-token prose completion, see [dell-pro-max-gb10-vllm-stack-ab](../../../dell-pro-max-gb10-vllm-stack-ab).
+**O, 2026-09-25:** DSpark draft-token acceptance across those probes was 1,650 of 6,670 (24.7%), read from the serve log. Low prose acceptance accounts for prose being about half the structured-output speed, but the exact counting definition was not re-verified. The 46.3 tok/s structured result was not re-measured on the second node. For the already-published 2026-09-16/17 comparison using the same recipe and a 400-token prose completion, see [dell-pro-max-gb10-vllm-stack-ab](https://github.com/ryangu00/dell-pro-max-gb10-vllm-stack-ab).
 
 ### Second-node re-run and long needles
 
@@ -148,7 +148,7 @@ maxTokens = 65536  # client request setting
 
 - **EXL3 role**: 3.0 bpw weights and controllable memory at ultra-long context (at 0.94 GPU memory utilization the node was left with only about 2 to 3.5 GiB of available memory in our runs, so there is little headroom; dated readings are above). EXL3 describes the weights; this serving path is vLLM-based.
 - **Dependencies**: on aarch64 the working path depends on a community pre-built image and kernel patches pinned by digest (no source build in this recipe).
-- **Best fit**: single-seat plus ultra-long context as requirements, when you can live with a third-party image pinned by digest. For the serving comparison, see [dell-pro-max-gb10-vllm-stack-ab](../../../dell-pro-max-gb10-vllm-stack-ab).
+- **Best fit**: single-seat plus ultra-long context as requirements, when you can live with a third-party image pinned by digest. For the serving comparison, see [dell-pro-max-gb10-vllm-stack-ab](https://github.com/ryangu00/dell-pro-max-gb10-vllm-stack-ab).
 
 ## Positioning
 
@@ -158,7 +158,7 @@ The single-seat deep workstation handles one long request at a time. Extra reque
 
 1. **Client generation budget**: `maxTokens` is a request setting, not a server-side cap; its historical configuration location is unresolved.
 2. Only if you build exllamav3 from source yourself (this recipe does not): `export TORCH_CUDA_ARCH_LIST="12.1a"` before the build; a missing arch only fails at runtime. With the pinned image, leave the launcher's architecture settings at the author's defaults.
-3. Enforce single-seat semantics on the caller side. The engine does queue (with `MAX_NUM_SEQS=1` a second request waits until the first finishes), but a long request blocks everything behind it: in [dell-pro-max-gb10-vllm-stack-ab](../../../dell-pro-max-gb10-vllm-stack-ab), 6 concurrent requests took 117 s wall (20.6 tok/s aggregate; published comparison, 2026-09-16/17). Put a single-seat queue or semaphore in front and set client timeouts that cover the wait.
+3. Enforce single-seat semantics on the caller side. The engine does queue (with `MAX_NUM_SEQS=1` a second request waits until the first finishes), but a long request blocks everything behind it: in [dell-pro-max-gb10-vllm-stack-ab](https://github.com/ryangu00/dell-pro-max-gb10-vllm-stack-ab), 6 concurrent requests took 117 s wall (20.6 tok/s aggregate; published comparison, 2026-09-16/17). Put a single-seat queue or semaphore in front and set client timeouts that cover the wait.
 
 ## Credits
 
